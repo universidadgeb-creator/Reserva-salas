@@ -107,6 +107,20 @@
     transition: all 0.15s;
   }
   .btn-today:hover { background: var(--ink) !important; color: var(--bg) !important; }
+  #date-picker {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 0.6rem;
+    height: 32px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--ink);
+    background: var(--bg);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #date-picker:hover, #date-picker:focus { border-color: var(--ink); }
   /* MAIN GRID */
   main {
     max-width: 1100px;
@@ -351,6 +365,7 @@
   <div id="date-display"></div>
   <button onclick="changeDay(1)">&#8594;</button>
   <button class="btn-today" onclick="goToday()">Hoy</button>
+  <input type="date" id="date-picker" onchange="pickDate(this.value)">
 </div>
 <!-- MAIN: ROOMS -->
 <main id="rooms-view">
@@ -442,9 +457,8 @@ CALENDAR_IDS: {
   'Local K':     'b489990a82f312bd57eb16d356b7a852c37e11ade98039ee3011a899b513d17c@group.calendar.google.com',
   'Universidad': 'a3fd1245fe878340f0d05166e419c6ebe2f30cae542a1e5c5c9c52ebec9ceeaa@group.calendar.google.com'
 },
-  // URL del Apps Script publicado como Web App (maneja lectura Y escritura)
-  // script.google.com > Implementar > Nueva implementación > Web App
-  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw6ZpgMj5SCQMsP5Gf244I0uuEFQm0jv0j__7J_ukMePSorisiq-gJ3a_w9OFmJ81f9AQ/exec',
+APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw6ZpgMj5SCQMsP5Gf244I0uuEFQm0jv0j__7J_ukMePSorisiq-gJ3a_w9OFmJ81f9AQ/exec',
+ADMIN_PASSWORD:  'admin2024',
   // Contraseña del panel admin
   ADMIN_PASSWORD: 'admin2024',
   // Horario (24h)
@@ -472,6 +486,16 @@ function isoDate(d) {
 function updateDateDisplay() {
   document.getElementById('date-display').textContent = fmtDate(currentDate);
   document.getElementById('admin-date-label').textContent = fmtDate(currentDate);
+  const picker = document.getElementById('date-picker');
+  if (picker) picker.value = isoDate(currentDate);
+}
+function pickDate(val) {
+  if (!val) return;
+  const [y, m, d] = val.split('-').map(Number);
+  currentDate = new Date(y, m - 1, d);
+  currentDate.setHours(0,0,0,0);
+  updateDateDisplay();
+  loadAllRooms();
 }
 function changeDay(n) {
   currentDate.setDate(currentDate.getDate() + n);

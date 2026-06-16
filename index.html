@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reserva de Salas</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F2EC;
+    --ink: #1A1714;
+    --muted: #8C8680;
+    --accent: #C94B2C;
+    --accent2: #2C6E49;
+    --surface: #FFFFFF;
+    --border: #DDD9D2;
+    --slot-free: #EAF4EE;
+    --slot-free-border: #2C6E49;
+    --slot-busy: #FAE8E4;
+    --slot-busy-border: #C94B2C;
+    --radius: 6px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  /* NAV */
+  header {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.35rem;
+    letter-spacing: 0.01em;
+  }
+  header h1 span { color: #C47A55; }
+  .nav-right { display: flex; gap: 1rem; align-items: center; }
+  .btn-admin {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: transparent;
+    color: var(--bg);
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.4rem 1rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-admin:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.6); }
+  /* DATE NAV */
+  .date-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.85rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .date-bar button {
+    background: none;
+    border: 1px solid var(--border);
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    color: var(--ink);
+  }
+  .date-bar button:hover { background: var(--ink); color: var(--bg); }
+  #date-display {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem;
+    min-width: 200px;
+    text-align: center;
+    text-transform: capitalize;
+  }
+  .btn-today {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: none;
+    border: 1px solid var(--border) !important;
+    width: auto !important;
+    border-radius: var(--radius) !important;
+    padding: 0 0.75rem !important;
+    height: 32px !important;
+    cursor: pointer;
+    color: var(--ink);
+    transition: all 0.15s;
+  }
+  .btn-today:hover { background: var(--ink) !important; color: var(--bg) !important; }
+  #date-picker {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 0.6rem;
+    height: 32px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--ink);
+    background: var(--bg);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #date-picker:hover, #date-picker:focus { border-color: var(--ink); }
+  /* MAIN GRID */
+  main {
+    max-width: 1100px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media(max-width: 700px) { main { grid-template-columns: 1fr; } }
+  /* ROOM CARD */
+  .room-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .room-header {
+    padding: 1rem 1.25rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .room-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem;
+  }
+  .room-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .room-slots { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .slot {
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s;
+  }
+  .slot.free {
+    background: var(--slot-free);
+    border: 1px solid var(--slot-free-border);
+    cursor: pointer;
+  }
+  .slot.free:hover { filter: brightness(0.96); transform: translateX(2px); }
+  .slot.busy {
+    background: var(--slot-busy);
+    border: 1px solid var(--slot-busy-border);
+    cursor: default;
+    opacity: 0.85;
+  }
+  .slot-time { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .slot-label { font-size: 0.8rem; color: var(--muted); margin-left: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+  .slot-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .free .slot-tag { background: var(--slot-free-border); color: white; }
+  .busy .slot-tag { background: var(--slot-busy-border); color: white; }
+  .loading-msg, .empty-msg {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .spinner {
+    display: inline-block;
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-bottom: 0.5rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(26,23,20,0.55);
+    backdrop-filter: blur(3px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 420px;
+    margin: 1rem;
+    padding: 2rem;
+    animation: slideUp 0.2s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem;
+    margin-bottom: 0.3rem;
+  }
+  .modal .modal-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: var(--bg);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--ink);
+  }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .btn-primary {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    margin-top: 0.5rem;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-cancel {
+    width: 100%;
+    padding: 0.65rem;
+    background: none;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+    margin-top: 0.4rem;
+    transition: all 0.15s;
+  }
+  .btn-cancel:hover { border-color: var(--ink); color: var(--ink); }
+  .error-msg { color: var(--accent); font-size: 0.82rem; margin-top: 0.5rem; }
+  .success-msg {
+    text-align: center;
+    padding: 1rem 0;
+  }
+  .success-msg .check {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .success-msg p { color: var(--muted); font-size: 0.9rem; margin-top: 0.4rem; }
+  /* ADMIN PANEL */
+  .admin-panel {
+    display: none;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+  }
+  .admin-panel.open { display: block; }
+  .admin-panel h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+  }
+  .event-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .event-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .event-info .event-room {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .event-info .event-title { font-weight: 500; font-size: 0.92rem; }
+  .event-info .event-time { font-size: 0.82rem; color: var(--muted); }
+  .btn-delete {
+    background: none;
+    border: 1px solid var(--slot-busy-border);
+    color: var(--accent);
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .btn-delete:hover { background: var(--accent); color: white; }
+  /* PASSWORD MODAL */
+  #pw-modal .modal { max-width: 340px; }
+</style>
+</head>
+<body>
+<!-- HEADER -->
+<header>
+  <h1>Salas <span>·</span> Reservaciones</h1>
+  <div class="nav-right">
+    <button class="btn-admin" onclick="openAdmin()">Admin</button>
+  </div>
+</header>
+<!-- DATE BAR -->
+<div class="date-bar">
+  <button onclick="changeDay(-1)">&#8592;</button>
+  <div id="date-display"></div>
+  <button onclick="changeDay(1)">&#8594;</button>
+  <button class="btn-today" onclick="goToday()">Hoy</button>
+  <input type="date" id="date-picker" onchange="pickDate(this.value)">
+</div>
+<!-- MAIN: ROOMS -->
+<main id="rooms-view">
+  <div class="room-card" id="card-local">
+    <div class="room-header">
+      <span class="room-name">Local K</span>
+      <span class="room-status" id="status-local"></span>
+    </div>
+    <div class="room-slots" id="slots-local"><div class="loading-msg"><div class="spinner"></div><br>Cargando...</div></div>
+  </div>
+  <div class="room-card" id="card-univ">
+    <div class="room-header">
+      <span class="room-name">Universidad</span>
+      <span class="room-status" id="status-univ"></span>
+    </div>
+    <div class="room-slots" id="slots-univ"><div class="loading-msg"><div class="spinner"></div><br>Cargando...</div></div>
+  </div>
+</main>
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="admin-panel">
+  <h2>Panel de Administración</h2>
+  <div style="display:flex;gap:1rem;margin-bottom:1.5rem;align-items:center;flex-wrap:wrap;">
+    <div class="date-bar" style="background:none;border:none;padding:0;display:flex;gap:0.5rem;align-items:center;">
+      <span style="font-size:0.82rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.08em;">Mostrando:</span>
+      <span id="admin-date-label" style="font-family:'DM Serif Display',serif;font-size:1rem;text-transform:capitalize;"></span>
+    </div>
+    <button class="btn-cancel" style="width:auto;padding:0.4rem 1rem;" onclick="closeAdmin()">← Volver</button>
+  </div>
+  <div id="admin-list" class="event-list"></div>
+</div>
+<!-- BOOKING MODAL -->
+<div class="modal-overlay" id="booking-modal">
+  <div class="modal">
+    <div id="booking-form-wrap">
+      <h2>Nueva Reserva</h2>
+      <p class="modal-sub" id="booking-sub"></p>
+      <div class="form-group">
+        <label>Tu nombre</label>
+        <input type="text" id="f-name" placeholder="Ej. María García" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Descripción (opcional)</label>
+        <textarea id="f-desc" placeholder="¿Para qué es la reunión?"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Hora inicio</label>
+          <select id="f-start"></select>
+        </div>
+        <div class="form-group">
+          <label>Hora fin</label>
+          <select id="f-end"></select>
+        </div>
+      </div>
+      <div class="error-msg" id="f-error"></div>
+      <button class="btn-primary" id="btn-book" onclick="submitBooking()">Confirmar Reserva</button>
+      <button class="btn-cancel" onclick="closeModal('booking-modal')">Cancelar</button>
+    </div>
+    <div id="booking-success" class="success-msg" style="display:none;">
+      <div class="check">✓</div>
+      <strong>¡Reserva confirmada!</strong>
+      <p id="success-detail"></p>
+      <button class="btn-primary" onclick="closeModal('booking-modal');loadAllRooms()">Aceptar</button>
+    </div>
+  </div>
+</div>
+<!-- PASSWORD MODAL -->
+<div class="modal-overlay" id="pw-modal">
+  <div class="modal" style="max-width:320px;">
+    <h2>Acceso Admin</h2>
+    <p class="modal-sub">Ingresa la contraseña de administrador</p>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" id="pw-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkPw()">
+    </div>
+    <div class="error-msg" id="pw-error"></div>
+    <button class="btn-primary" onclick="checkPw()">Entrar</button>
+    <button class="btn-cancel" onclick="closeModal('pw-modal')">Cancelar</button>
+  </div>
+</div>
+<script>
+// ─────────────────────────────────────────────
+//  CONFIGURACIÓN — Editar antes de publicar
+// ─────────────────────────────────────────────
+const CONFIG = {
+  // IDs de los calendarios de cada sala
+  // Google Calendar > Configuración del calendario > ID del calendario
+CALENDAR_IDS: {
+  'Local K':     'b489990a82f312bd57eb16d356b7a852c37e11ade98039ee3011a899b513d17c@group.calendar.google.com',
+  'Universidad': 'a3fd1245fe878340f0d05166e419c6ebe2f30cae542a1e5c5c9c52ebec9ceeaa@group.calendar.google.com'
+},
+APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw6ZpgMj5SCQMsP5Gf244I0uuEFQm0jv0j__7J_ukMePSorisiq-gJ3a_w9OFmJ81f9AQ/exec',
+ADMIN_PASSWORD:  'admin2024',
+  // Contraseña del panel admin
+  ADMIN_PASSWORD: 'admin2024',
+  // Horario (24h)
+  HOUR_START: 5,
+  HOUR_END: 24,
+  SLOT_MINUTES: 30
+};
+// ─────────────────────────────────────────────
+//  ESTADO
+// ─────────────────────────────────────────────
+let currentDate = new Date();
+currentDate.setHours(0,0,0,0);
+let bookingContext = {};
+let allEvents = {};
+let adminUnlocked = false;
+// ─────────────────────────────────────────────
+//  FECHAS
+// ─────────────────────────────────────────────
+function fmtDate(d) {
+  return d.toLocaleDateString('es-MX', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+function isoDate(d) {
+  return d.toISOString().split('T')[0];
+}
+function updateDateDisplay() {
+  document.getElementById('date-display').textContent = fmtDate(currentDate);
+  document.getElementById('admin-date-label').textContent = fmtDate(currentDate);
+  const picker = document.getElementById('date-picker');
+  if (picker) picker.value = isoDate(currentDate);
+}
+function pickDate(val) {
+  if (!val) return;
+  const [y, m, d] = val.split('-').map(Number);
+  currentDate = new Date(y, m - 1, d);
+  currentDate.setHours(0,0,0,0);
+  updateDateDisplay();
+  loadAllRooms();
+}
+function changeDay(n) {
+  currentDate.setDate(currentDate.getDate() + n);
+  updateDateDisplay();
+  loadAllRooms();
+  if (adminUnlocked) loadAdminPanel();
+}
+function goToday() {
+  currentDate = new Date();
+  currentDate.setHours(0,0,0,0);
+  updateDateDisplay();
+  loadAllRooms();
+}
+// ─────────────────────────────────────────────
+//  LECTURA DE EVENTOS — vía Apps Script (sin API Key)
+// ─────────────────────────────────────────────
+async function fetchEvents(calendarId) {
+  const date = isoDate(currentDate);
+  const url  = `${CONFIG.APPS_SCRIPT_URL}?action=getEvents&calendarId=${encodeURIComponent(calendarId)}&date=${date}`;
+  const res  = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) throw new Error(`Error ${res.status} al leer el calendario`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Error al leer eventos');
+  return data.items || [];
+}
+// ─────────────────────────────────────────────
+//  APPS SCRIPT PROXY — ESCRITURA
+//  Se envía el body como texto plano (sin Content-Type: application/json)
+//  para evitar el CORS preflight que Apps Script no maneja.
+// ─────────────────────────────────────────────
+async function callProxy(payload) {
+  const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+    method: 'POST',
+    // Sin cabecera Content-Type → el navegador envía text/plain
+    // Esto evita el OPTIONS preflight y Apps Script responde correctamente.
+    body: JSON.stringify(payload),
+    redirect: 'follow'
+  });
+  if (!res.ok) throw new Error(`Error HTTP ${res.status} en el proxy`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Error desconocido en el proxy');
+  return data;
+}
+async function createEvent(calendarId, title, startISO, endISO) {
+  return callProxy({ action: 'create', calendarId, title, startISO, endISO });
+}
+async function deleteEvent(calendarId, eventId) {
+  return callProxy({ action: 'delete', calendarId, eventId });
+}
+// ─────────────────────────────────────────────
+//  SLOTS
+// ─────────────────────────────────────────────
+function generateSlots() {
+  const slots = [];
+  for (let h = CONFIG.HOUR_START; h < CONFIG.HOUR_END; h++) {
+    for (let m = 0; m < 60; m += CONFIG.SLOT_MINUTES) {
+      const endM = m + CONFIG.SLOT_MINUTES;
+      const endH = endM >= 60 ? h + 1 : h;
+      const em   = endM >= 60 ? endM - 60 : endM;
+      slots.push({
+        start: `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`,
+        end:   `${String(endH).padStart(2,'0')}:${String(em).padStart(2,'0')}`
+      });
+    }
+  }
+  return slots;
+}
+function isSlotBusy(slot, events) {
+  const base = isoDate(currentDate);
+  const sStart = new Date(`${base}T${slot.start}:00`);
+  const sEnd   = new Date(`${base}T${slot.end}:00`);
+  for (const ev of events) {
+    const eStart = new Date(ev.start.dateTime || ev.start.date);
+    const eEnd   = new Date(ev.end.dateTime   || ev.end.date);
+    if (sStart < eEnd && sEnd > eStart) return ev;
+  }
+  return null;
+}
+function renderSlots(roomName, events, containerId, statusId) {
+  const container = document.getElementById(containerId);
+  const statusEl  = document.getElementById(statusId);
+  const slots = generateSlots();
+  let freeCount = 0;
+  let html = '';
+  for (const slot of slots) {
+    const ev = isSlotBusy(slot, events);
+    if (ev) {
+      const who = ev.summary || 'Ocupado';
+      html += `<div class="slot busy">
+        <span><span class="slot-time">${slot.start}</span>
+        <span class="slot-label">${who}</span></span>
+        <span class="slot-tag">Ocupado</span>
+      </div>`;
+    } else {
+      freeCount++;
+      html += `<div class="slot free" onclick="openBooking('${roomName}','${slot.start}','${slot.end}')">
+        <span><span class="slot-time">${slot.start}</span>
+        <span class="slot-label">Disponible</span></span>
+        <span class="slot-tag">Libre</span>
+      </div>`;
+    }
+  }
+  container.innerHTML = html || '<div class="empty-msg">No hay horarios para este día.</div>';
+  statusEl.textContent = `${freeCount} libre${freeCount!==1?'s':''}`;
+  statusEl.style.color = freeCount > 0 ? 'var(--accent2)' : 'var(--accent)';
+}
+async function loadRoom(roomName, containerId, statusId) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '<div class="loading-msg"><div class="spinner"></div><br>Cargando...</div>';
+  try {
+    const calId = CONFIG.CALENDAR_IDS[roomName];
+    const events = await fetchEvents(calId);
+    allEvents[roomName] = events;
+    renderSlots(roomName, events, containerId, statusId);
+  } catch(e) {
+    container.innerHTML = `<div class="empty-msg" style="color:var(--accent)">⚠ Error al cargar.<br><small>${e.message}</small></div>`;
+  }
+}
+function loadAllRooms() {
+  loadRoom('Local K', 'slots-local', 'status-local');
+  loadRoom('Universidad', 'slots-univ', 'status-univ');
+}
+// ─────────────────────────────────────────────
+//  BOOKING MODAL
+// ─────────────────────────────────────────────
+function openBooking(room, startTime, endTime) {
+  bookingContext = { room, startTime, endTime };
+  document.getElementById('booking-sub').textContent = `${room} · ${fmtDate(currentDate)}`;
+  document.getElementById('f-error').textContent = '';
+  document.getElementById('booking-success').style.display = 'none';
+  document.getElementById('booking-form-wrap').style.display = 'block';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-desc').value = '';
+  const events = allEvents[room] || [];
+  const allSlots = generateSlots();
+  const idx = allSlots.findIndex(s => s.start === startTime);
+  populateEndTimes(room, startTime, events, allSlots, idx);
+  const startSel = document.getElementById('f-start');
+  startSel.innerHTML = `<option value="${startTime}">${startTime}</option>`;
+  startSel.disabled = true;
+  document.getElementById('booking-modal').classList.add('open');
+  setTimeout(() => document.getElementById('f-name').focus(), 100);
+}
+function populateEndTimes(room, startTime, events, allSlots, startIdx) {
+  const endSel = document.getElementById('f-end');
+  endSel.innerHTML = '';
+  for (let i = startIdx + 1; i <= allSlots.length; i++) {
+    const prevSlot = allSlots[i-1];
+    const endTime = prevSlot.end;
+    let blocked = false;
+    for (let j = startIdx; j < i; j++) {
+      if (isSlotBusy(allSlots[j], events)) { blocked = true; break; }
+    }
+    if (blocked) break;
+    const opt = document.createElement('option');
+    opt.value = endTime;
+    opt.textContent = endTime;
+    endSel.appendChild(opt);
+  }
+}
+async function submitBooking() {
+  const name = document.getElementById('f-name').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+  const endTime = document.getElementById('f-end').value;
+  const errEl = document.getElementById('f-error');
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = 'Por favor ingresa tu nombre.'; return; }
+  if (!endTime) { errEl.textContent = 'Selecciona una hora de fin.'; return; }
+  const { room, startTime } = bookingContext;
+  const base = isoDate(currentDate);
+  const startISO = `${base}T${startTime}:00`;
+  const endISO   = `${base}T${endTime}:00`;
+  const title = desc ? `[${name}] ${desc}` : `[${name}] Reserva`;
+  const btn = document.getElementById('btn-book');
+  btn.disabled = true;
+  btn.textContent = 'Reservando...';
+  try {
+    const calId = CONFIG.CALENDAR_IDS[room];
+    await createEvent(calId, title, startISO, endISO);
+    document.getElementById('booking-form-wrap').style.display = 'none';
+    document.getElementById('booking-success').style.display = 'block';
+    document.getElementById('success-detail').textContent = `${room} · ${startTime}–${endTime} · ${name}`;
+  } catch(e) {
+    errEl.textContent = `⚠ No se pudo reservar: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar Reserva';
+  }
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+// ─────────────────────────────────────────────
+//  ADMIN
+// ─────────────────────────────────────────────
+function openAdmin() {
+  if (adminUnlocked) {
+    showAdminPanel();
+    return;
+  }
+  document.getElementById('pw-input').value = '';
+  document.getElementById('pw-error').textContent = '';
+  document.getElementById('pw-modal').classList.add('open');
+  setTimeout(() => document.getElementById('pw-input').focus(), 100);
+}
+function checkPw() {
+  const pw = document.getElementById('pw-input').value;
+  if (pw === CONFIG.ADMIN_PASSWORD) {
+    adminUnlocked = true;
+    closeModal('pw-modal');
+    showAdminPanel();
+  } else {
+    document.getElementById('pw-error').textContent = 'Contraseña incorrecta.';
+  }
+}
+function showAdminPanel() {
+  document.getElementById('rooms-view').style.display = 'none';
+  document.getElementById('admin-panel').classList.add('open');
+  loadAdminPanel();
+}
+function closeAdmin() {
+  document.getElementById('rooms-view').style.display = '';
+  document.getElementById('admin-panel').classList.remove('open');
+  loadAllRooms();
+}
+async function loadAdminPanel() {
+  const list = document.getElementById('admin-list');
+  list.innerHTML = '<div class="loading-msg"><div class="spinner"></div><br>Cargando eventos...</div>';
+  const rooms = Object.keys(CONFIG.CALENDAR_IDS);
+  let items = [];
+  for (const room of rooms) {
+    try {
+      const events = await fetchEvents(CONFIG.CALENDAR_IDS[room]);
+      for (const ev of events) {
+        items.push({ room, ev });
+      }
+    } catch(e) {}
+  }
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-msg">No hay eventos este día.</div>';
+    return;
+  }
+  items.sort((a,b) => new Date(a.ev.start.dateTime||a.ev.start.date) - new Date(b.ev.start.dateTime||b.ev.start.date));
+  list.innerHTML = items.map(({room, ev}) => {
+    const start = ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '';
+    const end   = ev.end.dateTime   ? new Date(ev.end.dateTime).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="event-item" id="ev-${ev.id}">
+      <div class="event-info">
+        <div class="event-room">${room}</div>
+        <div class="event-title">${ev.summary || '(sin título)'}</div>
+        <div class="event-time">${start} – ${end}</div>
+      </div>
+      <button class="btn-delete" onclick="deleteAdminEvent('${CONFIG.CALENDAR_IDS[room]}','${ev.id}')">Eliminar</button>
+    </div>`;
+  }).join('');
+}
+async function deleteAdminEvent(calId, eventId) {
+  if (!confirm('¿Eliminar esta reserva?')) return;
+  const evEl = document.getElementById(`ev-${eventId}`);
+  const btn = evEl?.querySelector('.btn-delete');
+  if (btn) { btn.disabled = true; btn.textContent = 'Eliminando...'; }
+  try {
+    await deleteEvent(calId, eventId);
+    evEl?.remove();
+    const list = document.getElementById('admin-list');
+    if (!list.querySelector('.event-item')) {
+      list.innerHTML = '<div class="empty-msg">No hay eventos este día.</div>';
+    }
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Eliminar'; }
+    alert(`⚠ Error al eliminar: ${e.message}`);
+  }
+}
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+updateDateDisplay();
+loadAllRooms();
+</script>
+</body>
+</html>

@@ -18,6 +18,8 @@
     --slot-free-border: #2C6E49;
     --slot-busy: #FAE8E4;
     --slot-busy-border: #C94B2C;
+    --slot-pending: #FFF3E0;
+    --slot-pending-border: #E67E22;
     --radius: 6px;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -176,6 +178,21 @@
     border: 1px solid var(--slot-busy-border);
     cursor: default;
     opacity: 0.85;
+  }
+  .slot.pending-delete {
+    background: var(--slot-pending);
+    border: 1px solid var(--slot-pending-border);
+    cursor: default;
+    opacity: 0.9;
+    animation: pendingPulse 2s ease-in-out infinite;
+  }
+  @keyframes pendingPulse {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 0.7; }
+  }
+  .pending-delete .slot-tag {
+    background: var(--slot-pending-border);
+    color: white;
   }
   .slot-time { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .slot-label { font-size: 0.8rem; color: var(--muted); margin-left: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
@@ -347,6 +364,87 @@
     transition: all 0.15s;
   }
   .btn-delete:hover { background: var(--accent); color: white; }
+  .btn-request-delete {
+    background: none;
+    border: 1px solid var(--slot-pending-border);
+    color: var(--slot-pending-border);
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    margin-left: 0.5rem;
+  }
+  .btn-request-delete:hover { background: var(--slot-pending-border); color: white; }
+  .badge-notif {
+    background: var(--slot-pending-border);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: 10px;
+    margin-left: 0.4rem;
+    animation: pendingPulse 2s ease-in-out infinite;
+  }
+  .event-item.pending-event {
+    border-color: var(--slot-pending-border);
+    background: var(--slot-pending);
+  }
+  .pending-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--slot-pending-border);
+    margin-left: 0.5rem;
+  }
+  .btn-approve {
+    background: none;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .btn-approve:hover { background: var(--accent2); color: white; }
+  .btn-reject {
+    background: none;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .btn-reject:hover { border-color: var(--ink); color: var(--ink); }
+  /* DELETE REQUEST MODAL */
+  #delete-modal .slot-check {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--slot-busy);
+    border: 1px solid var(--slot-busy-border);
+    border-radius: var(--radius);
+    margin-bottom: 0.4rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  #delete-modal .slot-check:hover { filter: brightness(0.96); }
+  #delete-modal .slot-check input { accent-color: var(--slot-pending-border); width: 16px; height: 16px; cursor: pointer; }
+  #delete-modal .slot-check label { cursor: pointer; font-size: 0.85rem; flex: 1; }
   /* PASSWORD MODAL */
   #pw-modal .modal { max-width: 340px; }
 </style>
@@ -356,7 +454,8 @@
 <header>
   <h1>Salas <span>·</span> Reservaciones</h1>
   <div class="nav-right">
-    <button class="btn-admin" onclick="openAdmin()">Admin</button>
+    <button class="btn-admin" style="border-color:var(--slot-pending-border);color:var(--slot-pending-border);" onclick="openDeleteRequest()">Eliminar Reserva</button>
+    <button class="btn-admin" onclick="openAdmin()">Admin<span id="admin-badge"></span></button>
   </div>
 </header>
 <!-- DATE BAR -->
@@ -432,6 +531,30 @@
     </div>
   </div>
 </div>
+<!-- DELETE REQUEST MODAL -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div id="delete-form-wrap">
+      <h2>Solicitar Eliminación</h2>
+      <p class="modal-sub" id="delete-sub"></p>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">Selecciona los bloques que deseas eliminar. Un administrador deberá aprobar la solicitud.</p>
+      <div id="delete-slots-list"></div>
+      <div class="form-group" style="margin-top:1rem;">
+        <label>Tu nombre (solicitante)</label>
+        <input type="text" id="del-name" placeholder="Ej. María García" autocomplete="name">
+      </div>
+      <div class="error-msg" id="del-error"></div>
+      <button class="btn-primary" style="background:var(--slot-pending-border);" id="btn-del-request" onclick="submitDeleteRequest()">Solicitar Eliminación</button>
+      <button class="btn-cancel" onclick="closeModal('delete-modal')">Cancelar</button>
+    </div>
+    <div id="delete-success" class="success-msg" style="display:none;">
+      <div class="check" style="color:var(--slot-pending-border);">⏳</div>
+      <strong>Solicitud enviada</strong>
+      <p>Un administrador revisará tu solicitud. Los bloques aparecerán en naranja mientras están pendientes.</p>
+      <button class="btn-primary" onclick="closeModal('delete-modal');loadAllRooms()">Aceptar</button>
+    </div>
+  </div>
+</div>
 <!-- PASSWORD MODAL -->
 <div class="modal-overlay" id="pw-modal">
   <div class="modal" style="max-width:320px;">
@@ -458,9 +581,9 @@ CALENDAR_IDS: {
   'Universidad': 'a3fd1245fe878340f0d05166e419c6ebe2f30cae542a1e5c5c9c52ebec9ceeaa@group.calendar.google.com'
 },
 APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw6ZpgMj5SCQMsP5Gf244I0uuEFQm0jv0j__7J_ukMePSorisiq-gJ3a_w9OFmJ81f9AQ/exec',
-ADMIN_PASSWORD:  'admin2024',
-  // Contraseña del panel admin
   ADMIN_PASSWORD: 'admin2024',
+  // Email de administrador para notificaciones
+  ADMIN_EMAIL: 'universidadgeb@gmail.com',
   // Horario (24h)
   HOUR_START: 5,
   HOUR_END: 24,
@@ -584,11 +707,19 @@ function renderSlots(roomName, events, containerId, statusId) {
     const ev = isSlotBusy(slot, events);
     if (ev) {
       const who = ev.summary || 'Ocupado';
-      html += `<div class="slot busy">
-        <span><span class="slot-time">${slot.start}</span>
-        <span class="slot-label">${who}</span></span>
-        <span class="slot-tag">Ocupado</span>
-      </div>`;
+      if (isPendingDelete(ev)) {
+        html += `<div class="slot pending-delete">
+          <span><span class="slot-time">${slot.start}</span>
+          <span class="slot-label">${cleanTitle(who)}</span></span>
+          <span class="slot-tag">Pendiente borrar</span>
+        </div>`;
+      } else {
+        html += `<div class="slot busy">
+          <span><span class="slot-time">${slot.start}</span>
+          <span class="slot-label">${who}</span></span>
+          <span class="slot-tag">Ocupado</span>
+        </div>`;
+      }
     } else {
       freeCount++;
       html += `<div class="slot free" onclick="openBooking('${roomName}','${slot.start}','${slot.end}')">
@@ -601,6 +732,7 @@ function renderSlots(roomName, events, containerId, statusId) {
   container.innerHTML = html || '<div class="empty-msg">No hay horarios para este día.</div>';
   statusEl.textContent = `${freeCount} libre${freeCount!==1?'s':''}`;
   statusEl.style.color = freeCount > 0 ? 'var(--accent2)' : 'var(--accent)';
+  updateAdminBadge();
 }
 async function loadRoom(roomName, containerId, statusId) {
   const container = document.getElementById(containerId);
@@ -742,13 +874,32 @@ async function loadAdminPanel() {
   list.innerHTML = items.map(({room, ev}) => {
     const start = ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '';
     const end   = ev.end.dateTime   ? new Date(ev.end.dateTime).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '';
+    const pending = isPendingDelete(ev);
+    const calId = CONFIG.CALENDAR_IDS[room];
+    const title = pending ? cleanTitle(ev.summary) : (ev.summary || '(sin título)');
+    const escapedTitle = (ev.summary||'').replace(/'/g,"\\'");
+    const startISO = ev.start.dateTime || ev.start.date;
+    const endISO = ev.end.dateTime || ev.end.date;
+    if (pending) {
+      return `<div class="event-item pending-event" id="ev-${ev.id}">
+        <div class="event-info">
+          <div class="event-room">${room} <span class="pending-badge">⏳ Pendiente de eliminar</span></div>
+          <div class="event-title">${title}</div>
+          <div class="event-time">${start} – ${end}</div>
+        </div>
+        <div style="display:flex;gap:0.4rem;">
+          <button class="btn-approve" onclick="approveDelete('${calId}','${ev.id}')">Aprobar</button>
+          <button class="btn-reject" onclick="rejectDelete('${calId}','${ev.id}','${escapedTitle}','${startISO}','${endISO}')">Rechazar</button>
+        </div>
+      </div>`;
+    }
     return `<div class="event-item" id="ev-${ev.id}">
       <div class="event-info">
         <div class="event-room">${room}</div>
-        <div class="event-title">${ev.summary || '(sin título)'}</div>
+        <div class="event-title">${title}</div>
         <div class="event-time">${start} – ${end}</div>
       </div>
-      <button class="btn-delete" onclick="deleteAdminEvent('${CONFIG.CALENDAR_IDS[room]}','${ev.id}')">Eliminar</button>
+      <button class="btn-delete" onclick="deleteAdminEvent('${calId}','${ev.id}')">Eliminar</button>
     </div>`;
   }).join('');
 }
@@ -767,6 +918,147 @@ async function deleteAdminEvent(calId, eventId) {
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Eliminar'; }
     alert(`⚠ Error al eliminar: ${e.message}`);
+  }
+}
+// ─────────────────────────────────────────────
+//  SOLICITUD DE ELIMINACIÓN
+// ─────────────────────────────────────────────
+const DELETE_PREFIX = '[BORRAR]';
+
+function isPendingDelete(ev) {
+  return ev.summary && ev.summary.startsWith(DELETE_PREFIX);
+}
+
+function cleanTitle(summary) {
+  if (!summary) return '(sin título)';
+  if (summary.startsWith(DELETE_PREFIX)) return summary.substring(DELETE_PREFIX.length).trim();
+  return summary;
+}
+
+function openDeleteRequest() {
+  const allBusy = [];
+  for (const room of Object.keys(CONFIG.CALENDAR_IDS)) {
+    const events = allEvents[room] || [];
+    for (const ev of events) {
+      if (!isPendingDelete(ev)) {
+        allBusy.push({ room, ev });
+      }
+    }
+  }
+  if (!allBusy.length) {
+    alert('No hay reservas para solicitar eliminación en este día.');
+    return;
+  }
+  allBusy.sort((a,b) => new Date(a.ev.start.dateTime||a.ev.start.date) - new Date(b.ev.start.dateTime||b.ev.start.date));
+  document.getElementById('delete-sub').textContent = fmtDate(currentDate);
+  document.getElementById('del-error').textContent = '';
+  document.getElementById('del-name').value = '';
+  document.getElementById('delete-success').style.display = 'none';
+  document.getElementById('delete-form-wrap').style.display = 'block';
+  const list = document.getElementById('delete-slots-list');
+  list.innerHTML = allBusy.map(({room, ev}, i) => {
+    const start = ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '';
+    const end = ev.end.dateTime ? new Date(ev.end.dateTime).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="slot-check" onclick="this.querySelector('input').click()">
+      <input type="checkbox" id="del-chk-${i}" data-room="${room}" data-evid="${ev.id}" data-calid="${CONFIG.CALENDAR_IDS[room]}" data-title="${(ev.summary||'').replace(/"/g,'&quot;')}" data-start="${ev.start.dateTime||ev.start.date}" data-end="${ev.end.dateTime||ev.end.date}" onclick="event.stopPropagation()">
+      <label for="del-chk-${i}" onclick="event.preventDefault()"><strong>${room}</strong> · ${start}–${end} · ${cleanTitle(ev.summary)}</label>
+    </div>`;
+  }).join('');
+  document.getElementById('delete-modal').classList.add('open');
+}
+
+async function submitDeleteRequest() {
+  const name = document.getElementById('del-name').value.trim();
+  const errEl = document.getElementById('del-error');
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = 'Por favor ingresa tu nombre.'; return; }
+  const checks = document.querySelectorAll('#delete-slots-list input[type=checkbox]:checked');
+  if (!checks.length) { errEl.textContent = 'Selecciona al menos un bloque.'; return; }
+  const btn = document.getElementById('btn-del-request');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    for (const chk of checks) {
+      const calId = chk.dataset.calid;
+      const evId = chk.dataset.evid;
+      const origTitle = chk.dataset.title;
+      const startISO = chk.dataset.start;
+      const endISO = chk.dataset.end;
+      const newTitle = `${DELETE_PREFIX} ${origTitle} (solicitó: ${name})`;
+      await deleteEvent(calId, evId);
+      await createEvent(calId, newTitle, startISO, endISO);
+    }
+    const roomsText = [...new Set([...checks].map(c => c.dataset.room))].join(', ');
+    const detailLines = [...checks].map(c => {
+      const s = new Date(c.dataset.start).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+      const e = new Date(c.dataset.end).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+      return `${c.dataset.room}: ${s}–${e}`;
+    }).join('\n');
+    sendDeleteNotification(name, roomsText, fmtDate(currentDate), detailLines);
+    document.getElementById('delete-form-wrap').style.display = 'none';
+    document.getElementById('delete-success').style.display = 'block';
+  } catch(e) {
+    errEl.textContent = `⚠ Error: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Solicitar Eliminación';
+  }
+}
+
+function sendDeleteNotification(name, rooms, date, details) {
+  callProxy({
+    action: 'notifyDelete',
+    adminEmail: CONFIG.ADMIN_EMAIL,
+    requester: name,
+    rooms: rooms,
+    date: date,
+    details: details
+  }).catch(() => {});
+}
+
+function updateAdminBadge() {
+  let pendingCount = 0;
+  for (const room of Object.keys(allEvents)) {
+    for (const ev of allEvents[room] || []) {
+      if (isPendingDelete(ev)) pendingCount++;
+    }
+  }
+  const badge = document.getElementById('admin-badge');
+  badge.innerHTML = pendingCount > 0 ? `<span class="badge-notif">${pendingCount}</span>` : '';
+}
+
+async function approveDelete(calId, eventId) {
+  if (!confirm('¿Aprobar la eliminación de esta reserva?')) return;
+  const evEl = document.getElementById(`ev-${eventId}`);
+  const btn = evEl?.querySelector('.btn-approve');
+  if (btn) { btn.disabled = true; btn.textContent = 'Eliminando...'; }
+  try {
+    await deleteEvent(calId, eventId);
+    evEl?.remove();
+    const list = document.getElementById('admin-list');
+    if (!list.querySelector('.event-item')) {
+      list.innerHTML = '<div class="empty-msg">No hay eventos este día.</div>';
+    }
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Aprobar'; }
+    alert(`⚠ Error: ${e.message}`);
+  }
+}
+
+async function rejectDelete(calId, eventId, origTitle, startISO, endISO) {
+  if (!confirm('¿Rechazar la solicitud y restaurar la reserva?')) return;
+  const evEl = document.getElementById(`ev-${eventId}`);
+  const btn = evEl?.querySelector('.btn-reject');
+  if (btn) { btn.disabled = true; btn.textContent = 'Restaurando...'; }
+  try {
+    await deleteEvent(calId, eventId);
+    const restored = origTitle.replace(/^\[BORRAR\]\s*/, '').replace(/\s*\(solicitó:.*?\)\s*$/, '');
+    await createEvent(calId, restored, startISO, endISO);
+    evEl?.remove();
+    loadAdminPanel();
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Rechazar'; }
+    alert(`⚠ Error: ${e.message}`);
   }
 }
 // ─────────────────────────────────────────────

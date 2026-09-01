@@ -666,7 +666,6 @@ async function guardarReserva() {
 
   try {
     await createEvent(R.sala.calId, title, startISO, endISO);
-    const folio = String(Math.floor(1000 + Math.random() * 9000));
     document.getElementById('hoja').innerHTML = `
       <h2>¡Sala apartada!</h2>
       <div class="paso">${escapa(R.sala.nombre)}</div>
@@ -674,7 +673,7 @@ async function guardarReserva() {
         <b>${escapa(R.sala.nombre)}</b>
         <span>${escapa(fmtFecha(S.fecha))} · ${R.hm} a ${aHM(endMin)} · ${escapa(S.sede)}</span>
       </div>
-      <div class="folio-caja"><div class="n">${folio}</div><p>Guarda este folio para cancelar si lo necesitas.</p></div>
+      <p style="color:var(--suave);font-size:13px;margin:0 0 8px">Si necesitas cancelar, toca el bloque en el tablero y solicita su eliminación.</p>
       <button class="btn-s" style="width:100%;padding:13px;border-radius:10px;font-weight:600" onclick="cerrarModal();cargarSede()">Listo</button>`;
   } catch(e) {
     btn.disabled = false; btn.textContent = 'Apartar sala';

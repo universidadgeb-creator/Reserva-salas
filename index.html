@@ -608,8 +608,9 @@ function mostrarFormReserva() {
   };
 
   let opFin = '';
-  for (let d = CFG.SLOT_MIN; d <= 180 && startMin + d <= minFin; d += CFG.SLOT_MIN) {
-    const label = d < 60 ? `${d} min` : `${d/60}${d===60?' hora':' horas'}`;
+  for (let d = CFG.SLOT_MIN; startMin + d <= minFin; d += CFG.SLOT_MIN) {
+    const h = Math.floor(d/60), m = d%60;
+    const label = d < 60 ? `${d} min` : (m===0 ? `${h}${h===1?' hora':' horas'}` : `${h}h ${m}min`);
     opFin += `<option value="${d}" ${d===R.dur?'selected':''}>${label}</option>`;
   }
 
@@ -720,10 +721,34 @@ function checkPw() {
   }
 }
 
+// Carga eventos de una sala en un rango de fechas (isoDesde, diasAdelante)
+async function fetchEventosRango(sala, isoDesde, diasAdelante) {
+  const resultados = [];
+  const [y,m,d] = isoDesde.split('-').map(Number);
+  const fetchDia = async (offset) => {
+    const dt = new Date(y,m-1,d+offset);
+    const iso = dt.toLocaleDateString('en-CA');
+    const evs = await fetchEvents(sala.calId, iso).catch(() => []);
+    return evs.map(ev => ({ sala, ev, fecha: iso,
+      sede: Object.keys(CFG.SEDES).find(k => CFG.SEDES[k].some(s=>s.id===sala.id)) }));
+  };
+  const dias = await Promise.all(Array.from({length:diasAdelante},(_,i)=>fetchDia(i)));
+  return dias.flat();
+}
+
+// fetchEvents necesita aceptar iso como parámetro (no solo S.fecha)
+async function fetchEventsForDate(calId, iso) {
+  const url = `${CFG.APPS_SCRIPT_URL}?action=getEvents&calendarId=${encodeURIComponent(calId)}&date=${iso}`;
+  const res = await fetch(url, { redirect:'follow' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Error');
+  return data.items || [];
+}
+
 async function mostrarPanel() {
   document.getElementById('btnAdmin').dataset.on = '1';
   document.getElementById('panel').classList.add('abierto');
-  await cargarTodas();
   pintarPanel();
 }
 
@@ -735,56 +760,78 @@ function cerrarPanel() {
 
 async function pintarPanel() {
   const cont = document.getElementById('panelCuerpo');
-  cont.innerHTML = '<div class="cargando">Cargando eventos…</div>';
+  cont.innerHTML = '<div class="cargando">Cargando eventos de los próximos 14 días…</div>';
 
   const todasSalas = Object.values(CFG.SEDES).flat();
-  let items = [];
-  todasSalas.forEach(sala => {
-    (S.events[sala.id]||[]).forEach(ev => {
-      const sedeName = Object.keys(CFG.SEDES).find(k => CFG.SEDES[k].some(s=>s.id===sala.id));
-      items.push({ sala, ev, sede: sedeName });
-    });
-  });
+  const hoy = isoHoy();
+
+  // Cargar 14 días para todas las salas en paralelo
+  const todos = await Promise.all(
+    todasSalas.map(sala =>
+      Promise.all(
+        Array.from({length:14},(_,i) => {
+          const [y,m,d] = hoy.split('-').map(Number);
+          const dt = new Date(y,m-1,d+i);
+          const iso = dt.toLocaleDateString('en-CA');
+          return fetchEventsForDate(sala.calId, iso)
+            .then(evs => evs.map(ev => ({
+              sala, ev, fecha: iso,
+              sede: Object.keys(CFG.SEDES).find(k => CFG.SEDES[k].some(s=>s.id===sala.id))
+            })))
+            .catch(() => []);
+        })
+      ).then(r => r.flat())
+    )
+  );
+
+  let items = todos.flat();
   items.sort((a,b) => new Date(a.ev.start.dateTime||a.ev.start.date) - new Date(b.ev.start.dateTime||b.ev.start.date));
 
+  const pendientes = items.filter(x => isPending(x.ev));
+  const normales   = items.filter(x => !isPending(x.ev));
+
   if (!items.length) {
-    cont.innerHTML = '<div class="vacio-msg">No hay eventos este día.</div>';
+    cont.innerHTML = '<div class="vacio-msg">No hay eventos en los próximos 14 días.</div>';
     return;
   }
 
-  cont.innerHTML = `<p style="font-size:12px;color:var(--suave);margin-bottom:12px;text-transform:uppercase;letter-spacing:.08em">${escapa(fmtFecha(S.fecha))}</p>` +
-    items.map(({ sala, ev, sede }) => {
-      const ini = new Date(ev.start.dateTime || ev.start.date);
-      const fin = new Date(ev.end.dateTime   || ev.end.date);
-      const pend = isPending(ev);
-      const startISO = ev.start.dateTime || ev.start.date;
-      const endISO   = ev.end.dateTime   || ev.end.date;
-      const titleEsc = escapa(ev.summary||'').replace(/'/g,"\\'");
+  const evCard = ({ sala, ev, fecha, sede }) => {
+    const ini = new Date(ev.start.dateTime || ev.start.date);
+    const fin = new Date(ev.end.dateTime   || ev.end.date);
+    const pend = isPending(ev);
+    const startISO = ev.start.dateTime || ev.start.date;
+    const endISO   = ev.end.dateTime   || ev.end.date;
+    const titleEsc = escapa(ev.summary||'').replace(/'/g,"\\'");
+    const fechaLbl = `${fmtFecha(fecha)}`;
 
-      if (pend) {
-        return `<div class="ev-card pendiente-card" id="ev-${escapa(ev.id)}" style="--c:${sala.color}">
-          <div class="ev-info" style="flex:1">
-            <div class="ev-sede">${escapa(sede)} · ${escapa(sala.nombre)} <span class="ev-pending">⏳ Pendiente</span></div>
-            <div class="ev-titulo">${escapa(cleanTitle(ev.summary))}</div>
-            <div class="ev-hora">${hhmm(ini)} – ${hhmm(fin)}</div>
-          </div>
-          <div class="ev-acciones">
-            <button class="btn-ev btn-ev-ok" onclick="aprobarElim('${escapa(sala.calId)}','${escapa(ev.id)}')">Aprobar</button>
-            <button class="btn-ev btn-ev-no" onclick="rechazarElim('${escapa(sala.calId)}','${escapa(ev.id)}','${titleEsc}','${escapa(startISO)}','${escapa(endISO)}')">Rechazar</button>
-          </div>
-        </div>`;
-      }
-      return `<div class="ev-card" id="ev-${escapa(ev.id)}" style="--c:${sala.color}">
+    if (pend) {
+      return `<div class="ev-card pendiente-card" id="ev-${escapa(ev.id)}" style="--c:${sala.color}">
         <div class="ev-info" style="flex:1">
-          <div class="ev-sede">${escapa(sede)} · ${escapa(sala.nombre)}</div>
+          <div class="ev-sede">${escapa(sede)} · ${escapa(sala.nombre)} <span class="ev-pending">⏳ Pendiente</span></div>
           <div class="ev-titulo">${escapa(cleanTitle(ev.summary))}</div>
-          <div class="ev-hora">${hhmm(ini)} – ${hhmm(fin)}</div>
+          <div class="ev-hora">${escapa(fechaLbl)} · ${hhmm(ini)} – ${hhmm(fin)}</div>
         </div>
         <div class="ev-acciones">
-          <button class="btn-ev btn-ev-del" onclick="elimAdmin('${escapa(sala.calId)}','${escapa(ev.id)}')">Eliminar</button>
+          <button class="btn-ev btn-ev-ok" onclick="aprobarElim('${escapa(sala.calId)}','${escapa(ev.id)}')">Aprobar</button>
+          <button class="btn-ev btn-ev-no" onclick="rechazarElim('${escapa(sala.calId)}','${escapa(ev.id)}','${titleEsc}','${escapa(startISO)}','${escapa(endISO)}')">Rechazar</button>
         </div>
       </div>`;
-    }).join('');
+    }
+    return `<div class="ev-card" id="ev-${escapa(ev.id)}" style="--c:${sala.color}">
+      <div class="ev-info" style="flex:1">
+        <div class="ev-sede">${escapa(sede)} · ${escapa(sala.nombre)}</div>
+        <div class="ev-titulo">${escapa(cleanTitle(ev.summary))}</div>
+        <div class="ev-hora">${escapa(fechaLbl)} · ${hhmm(ini)} – ${hhmm(fin)}</div>
+      </div>
+      <div class="ev-acciones">
+        <button class="btn-ev btn-ev-del" onclick="elimAdmin('${escapa(sala.calId)}','${escapa(ev.id)}')">Eliminar</button>
+      </div>
+    </div>`;
+  };
+
+  cont.innerHTML =
+    (pendientes.length ? `<p style="font-size:12px;font-weight:700;color:var(--naranja);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">⏳ Solicitudes pendientes (${pendientes.length})</p>` + pendientes.map(evCard).join('') : '') +
+    (normales.length   ? `<p style="font-size:12px;color:var(--suave);margin:${pendientes.length?'16px':0} 0 8px;text-transform:uppercase;letter-spacing:.08em">Todas las reservas · próximos 14 días</p>` + normales.map(evCard).join('') : '');
 }
 
 async function aprobarElim(calId, eventId) {
